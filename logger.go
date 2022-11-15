@@ -55,22 +55,23 @@ func NewLogger(opts ...Option) (*Logger, error) {
 }
 
 func createNewLogger(opts ...Option) (*Logger, error) {
-	logger := logrus.New()
+	l := logrus.New()
 	formatter := &logrus.TextFormatter{
 		DisableTimestamp: true,
 		ForceColors:      true,
 	}
+	l.SetFormatter(formatter)
 
-	logger.SetFormatter(formatter)
+	logger := &Logger{
+		Entry: logrus.NewEntry(l),
+	}
 
 	for _, opt := range opts {
 		if err := opt(logger); err != nil {
 			return nil, err
 		}
 	}
-	return &Logger{
-		Entry: logrus.NewEntry(logger),
-	}, nil
+	return logger, nil
 }
 
 func formatFilePath(path string) string {
