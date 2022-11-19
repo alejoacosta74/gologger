@@ -2,6 +2,7 @@ package gologger
 
 import (
 	"bytes"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +40,24 @@ func TestLogger(t *testing.T) {
 				assert.True(strings.Contains(buffer.String(), "testing WithOutPut option"))
 				assert.True(strings.Contains(buffer.String(), "0"))
 				assert.False(strings.Contains(buffer.String(), "1"))
+				wg.Done()
+			}(i)
+		}
+		wg.Wait()
+	})
+	t.Run("method NewLoggerWithField", func(t *testing.T) {
+		mu := sync.Mutex{}
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+		for i := 1; i < 3; i++ {
+			go func(i int) {
+				newLogger := logger.NewLoggerWithField("id", i)
+				assert.NotNil(newLogger)
+				mu.Lock()
+				buffer.Reset()
+				newLogger.Info("method NewLoggerWithField")
+				assert.True(strings.Contains(buffer.String(), strconv.Itoa(i)))
+				mu.Unlock()
 				wg.Done()
 			}(i)
 		}

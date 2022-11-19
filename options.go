@@ -68,14 +68,14 @@ func WithFiles(outputFile string, errorFile string) Option {
 
 func WithFields(fields map[string]interface{}) Option {
 	return func(l *Logger) error {
-		l = l.WithFields(fields)
+		l.Entry = l.WithFields(fields)
 		return nil
 	}
 }
 
 func WithField(msg string, val interface{}) Option {
 	return func(l *Logger) error {
-		l = l.WithField(msg, val)
+		l.Entry = l.WithField(msg, val)
 		return nil
 	}
 }
@@ -91,7 +91,7 @@ func WithRuntimeContext() Option {
 	return func(l *Logger) error {
 		if pc, file, line, ok := runtime.Caller(1); ok {
 			fName := runtime.FuncForPC(pc).Name()
-			l = l.WithField("file", file).WithField("line", line).WithField("func", fName)
+			l.Entry = l.WithField("file", file).WithField("line", line).WithField("func", fName)
 			return nil
 		}
 		return fmt.Errorf("logger option: failed to get runtime context")

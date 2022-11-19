@@ -20,33 +20,29 @@ var (
 	loggerError error
 )
 
+// Returns true if the log level is set to debug
 func (l *Logger) IsDebug() bool {
 	return l.GetLevel() == logrus.DebugLevel
 }
 
+// Returns the log level
 func (l *Logger) GetLevel() logrus.Level {
 	return l.Logger.GetLevel()
 }
 
-func (l *Logger) WithField(key string, value interface{}) *Logger {
-	l.Entry = l.Entry.WithField(key, value)
-	return l
+// Returns a new logger instance with the given field
+func (l *Logger) NewLoggerWithField(key string, value interface{}) *Logger {
+	newLogger := l.Entry.WithField(key, value)
+	return &Logger{newLogger}
 }
 
-func (l *Logger) WithFields(fields map[string]interface{}) *Logger {
-	l.Entry = l.Entry.WithFields(fields)
-	return l
+// Returns a new logger instance with the given fields
+func (l *Logger) NewLoggerWithFields(fields map[string]interface{}) *Logger {
+	newLogger := l.Entry.WithFields(fields)
+	return &Logger{newLogger}
 }
 
-func (l *Logger) SetFields(fields map[string]interface{}) {
-	l.Entry = l.Entry.WithFields(fields)
-}
-
-func Fields(f map[string]interface{}) logrus.Fields {
-	return f
-
-}
-
+// Returns a new logger instance with the given options
 func NewLogger(opts ...Option) (*Logger, error) {
 	loggerOnce.Do(func() {
 		logger, loggerError = createNewLogger(opts...)

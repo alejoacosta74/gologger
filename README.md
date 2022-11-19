@@ -1,10 +1,12 @@
 # gologger
 
-A golang logger based on logrus library, implementing out-of-the-box features such as:
+A golang logger based on [logrus](https://github.com/sirupsen/logrus) library, implementing out-of-the-box features such as:
 - singleton logic
-- debuging decorated output
-- nologger option
+- debuging option (`WithDebugLevel(true)`)
+- decorated output (`WithRunTimeContext()`)
+- nologger option (`WithNullLogger()`)
 - option to write loggin output to file instead of stdout
+- convenience methods to create new logger instances (i.e. `(l) func NewLoggerWithField()`)
 
 ## usage
 
