@@ -12,6 +12,7 @@ import (
 
 type Option func(l *Logger) error
 
+// WithDebugLevel sets the log level to debug with some preformatted output
 func WithDebugLevel(debug bool) Option {
 	return func(l *Logger) error {
 		if debug {
@@ -26,12 +27,40 @@ func WithDebugLevel(debug bool) Option {
 			l.Logger.SetLevel(logrus.DebugLevel)
 			l.Logger.SetFormatter(formatter)
 			l.Logger.SetReportCaller(true)
-			l.Level = logrus.DebugLevel
 		}
 		return nil
 	}
 }
 
+// WithLevel sets the log level for the logger
+func WithLevel(level Level) Option {
+	return func(l *Logger) error {
+		if level <= DebugLevel {
+			formatter := &logrus.TextFormatter{
+				TimestampFormat: "02-01-2006 15:04:05",
+				FullTimestamp:   true,
+				ForceColors:     true,
+				CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+					return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
+				},
+			}
+			l.Logger.SetFormatter(formatter)
+			l.Logger.SetReportCaller(true)
+		} else {
+			formatter := &logrus.TextFormatter{
+				DisableTimestamp:       true,
+				ForceColors:            true,
+				PadLevelText:           true,
+				DisableLevelTruncation: true,
+			}
+			l.Logger.SetFormatter(formatter)
+		}
+		l.Logger.SetLevel(logrus.Level(level))
+		return nil
+	}
+}
+
+// WithOutput sets the output for the logger
 func WithOutput(output io.Writer) Option {
 	return func(l *Logger) error {
 		l.Logger.SetOutput(output)
@@ -39,6 +68,7 @@ func WithOutput(output io.Writer) Option {
 	}
 }
 
+// WithFiles configures the logger to write to the given files
 func WithFiles(outputFile string, errorFile string) Option {
 	return func(l *Logger) error {
 		if _, err := os.Stat(outputFile); err == nil {
@@ -66,6 +96,7 @@ func WithFiles(outputFile string, errorFile string) Option {
 	}
 }
 
+// WithFields sets the fields for the logger
 func WithFields(fields map[string]interface{}) Option {
 	return func(l *Logger) error {
 		l.Entry = l.WithFields(fields)
@@ -73,6 +104,7 @@ func WithFields(fields map[string]interface{}) Option {
 	}
 }
 
+// WithField sets the field for the logger
 func WithField(msg string, val interface{}) Option {
 	return func(l *Logger) error {
 		l.Entry = l.WithField(msg, val)
@@ -80,6 +112,7 @@ func WithField(msg string, val interface{}) Option {
 	}
 }
 
+// WithNullLogger sets the logger to discard all output
 func WithNullLogger() Option {
 	return func(l *Logger) error {
 		l.Logger.Out = io.Discard
@@ -87,11 +120,22 @@ func WithNullLogger() Option {
 	}
 }
 
+// WithRuntimeContext sets the logger to include runtime context
 func WithRuntimeContext() Option {
 	return func(l *Logger) error {
 		if pc, file, line, ok := runtime.Caller(1); ok {
 			fName := runtime.FuncForPC(pc).Name()
 			l.Entry = l.WithField("file", file).WithField("line", line).WithField("func", fName)
+			formatter := &logrus.TextFormatter{
+				TimestampFormat: "02-01-2006 15:04:05",
+				FullTimestamp:   true,
+				ForceColors:     true,
+				CallerPrettyfier: func(f *runtime.Frame) (string, string) {
+					return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
+				},
+			}
+			l.Logger.SetFormatter(formatter)
+			l.Logger.SetReportCaller(true)
 			return nil
 		}
 		return fmt.Errorf("logger option: failed to get runtime context")
