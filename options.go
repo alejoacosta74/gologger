@@ -5,12 +5,19 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
 )
 
 type Option func(l *Logger) error
+
+// calldepth is the call depth of the callsite function relative to the
+// caller of the subsystem logger.  It is used to recover the filename and line
+// number of the logging call if either the short or long file flags are
+// specified.
+const calldepth = 3
 
 // WithDebugLevel sets the log level to debug with some preformatted output
 func WithDebugLevel(debug bool) Option {
@@ -32,29 +39,40 @@ func WithDebugLevel(debug bool) Option {
 	}
 }
 
-// WithLevel sets the log level for the logger
+// WithLevel sets the log level and the corresponding format for the logger
 func WithLevel(level Level) Option {
 	return func(l *Logger) error {
-		if level <= DebugLevel {
-			formatter := &logrus.TextFormatter{
-				TimestampFormat: "02-01-2006 15:04:05",
-				FullTimestamp:   true,
-				ForceColors:     true,
-				CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-					return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
-				},
-			}
-			l.Logger.SetFormatter(formatter)
-			l.Logger.SetReportCaller(true)
-		} else {
-			formatter := &logrus.TextFormatter{
-				DisableTimestamp:       true,
-				ForceColors:            true,
-				PadLevelText:           true,
-				DisableLevelTruncation: true,
-			}
-			l.Logger.SetFormatter(formatter)
+		formatter := &logrus.TextFormatter{
+			ForceColors:            true,
+			PadLevelText:           false,
+			DisableLevelTruncation: false,
 		}
+		switch level {
+		case DebugLevel:
+			formatter.TimestampFormat = "02-01-2006 15:04:05"
+			formatter.FullTimestamp = true
+			formatter.CallerPrettyfier = func(f *runtime.Frame) (string, string) {
+				return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
+			}
+			l.Logger.SetReportCaller(true)
+		case TraceLevel:
+			formatter.TimestampFormat = "02-01-2006 15:04:05"
+			formatter.FullTimestamp = true
+			if pc, file, line, ok := runtime.Caller(calldepth); ok {
+				fName := runtime.FuncForPC(pc).Name()
+				l = l.WithField("file", file).WithField("line", line).WithField("func", fName)
+			}
+			formatter.CallerPrettyfier = func(f *runtime.Frame) (string, string) {
+				return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
+			}
+			l.Logger.SetReportCaller(true)
+		default:
+			formatter.DisableTimestamp = true
+			l.Logger.SetFormatter(formatter)
+			l.Logger.SetReportCaller(false)
+
+		}
+		l.Logger.SetFormatter(formatter)
 		l.Logger.SetLevel(logrus.Level(level))
 		return nil
 	}
@@ -107,7 +125,7 @@ func WithFields(fields map[string]interface{}) Option {
 // WithField sets the field for the logger
 func WithField(msg string, val interface{}) Option {
 	return func(l *Logger) error {
-		l.Entry = l.WithField(msg, val)
+		l = l.WithField(msg, val)
 		return nil
 	}
 }
@@ -125,7 +143,7 @@ func WithRuntimeContext() Option {
 	return func(l *Logger) error {
 		if pc, file, line, ok := runtime.Caller(1); ok {
 			fName := runtime.FuncForPC(pc).Name()
-			l.Entry = l.WithField("file", file).WithField("line", line).WithField("func", fName)
+			l = l.WithField("file", file).WithField("line", line).WithField("func", fName)
 			formatter := &logrus.TextFormatter{
 				TimestampFormat: "02-01-2006 15:04:05",
 				FullTimestamp:   true,
@@ -140,4 +158,9 @@ func WithRuntimeContext() Option {
 		}
 		return fmt.Errorf("logger option: failed to get runtime context")
 	}
+}
+
+func formatFilePath(path string) string {
+	arr := strings.Split(path, "/")
+	return arr[len(arr)-1]
 }

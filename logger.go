@@ -2,7 +2,7 @@
 package gologger
 
 import (
-	"strings"
+	"io"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -12,43 +12,36 @@ type Logger struct {
 	*logrus.Entry
 }
 
-type Level uint32
-
-const (
-	// PanicLevel level, highest level of severity. Logs and then calls panic with the
-	// message passed to Debug, Info, ...
-	PanicLevel Level = iota
-	// FatalLevel level. Logs and then calls `logger.Exit(1)`. It will exit even if the
-	// logging level is set to Panic.
-	FatalLevel
-	// ErrorLevel level. Logs. Used for errors that should definitely be noted.
-	// Commonly used for hooks to send errors to an error tracking service.
-	ErrorLevel
-	// WarnLevel level. Non-critical entries that deserve eyes.
-	WarnLevel
-	// InfoLevel level. General operational entries about what's going on inside the
-	// application.
-	InfoLevel
-	// DebugLevel level. Usually only enabled when debugging. Very verbose logging.
-	DebugLevel
-	// TraceLevel level. Designates finer-grained informational events than the Debug.
-	TraceLevel
-)
-
 var (
 	loggerOnce  sync.Once
 	logger      *Logger
 	loggerError error
 )
 
-// Returns true if the log level is set to debug
+// Returns true if the log level is set to 'debug' or 'trace'
 func (l *Logger) IsDebug() bool {
-	return l.GetLevel() == logrus.DebugLevel
+	return l.GetLevel() >= DebugLevel
 }
 
 // Returns the log level
-func (l *Logger) GetLevel() logrus.Level {
-	return l.Logger.GetLevel()
+func (l *Logger) GetLevel() Level {
+	level := l.Logger.GetLevel()
+	return Level(level)
+}
+
+// Sets the log level
+func (l *Logger) SetLevel(level Level) {
+	l.Logger.SetLevel(logrus.Level(level))
+}
+
+func (l *Logger) WithField(key string, value interface{}) *Logger {
+	l.Entry = l.Entry.WithField(key, value)
+	return l
+}
+
+// Same as WithField but implements the ILogger interface
+func (l *Logger) With(key string, value interface{}) ILogger {
+	return l.WithField(key, value)
 }
 
 // Returns a new logger instance with the given field
@@ -57,13 +50,13 @@ func (l *Logger) NewLoggerWithField(key string, value interface{}) *Logger {
 	return &Logger{newLogger}
 }
 
-// Returns a new logger instance with the given fields
+// Returns a new logger instantiated from the existing logger with the given fields
 func (l *Logger) NewLoggerWithFields(fields map[string]interface{}) *Logger {
 	newLogger := l.Entry.WithFields(fields)
 	return &Logger{newLogger}
 }
 
-// Returns a new logger instance with the given options
+// Returns a singleton logger instance with the given options
 func NewLogger(opts ...Option) (*Logger, error) {
 	loggerOnce.Do(func() {
 		logger, loggerError = createNewLogger(opts...)
@@ -79,6 +72,9 @@ func createNewLogger(opts ...Option) (*Logger, error) {
 	}
 	l.SetFormatter(formatter)
 
+	// by default set output to no-op
+	l.SetOutput(io.Discard)
+
 	logger := &Logger{
 		Entry: logrus.NewEntry(l),
 	}
@@ -89,9 +85,4 @@ func createNewLogger(opts ...Option) (*Logger, error) {
 		}
 	}
 	return logger, nil
-}
-
-func formatFilePath(path string) string {
-	arr := strings.Split(path, "/")
-	return arr[len(arr)-1]
 }
