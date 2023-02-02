@@ -34,6 +34,7 @@ func WithDebugLevel(debug bool) Option {
 			l.Logger.SetLevel(logrus.DebugLevel)
 			l.Logger.SetFormatter(formatter)
 			l.Logger.SetReportCaller(true)
+			l.Logger.SetOutput(os.Stdout)
 		}
 		return nil
 	}
@@ -74,6 +75,7 @@ func WithLevel(level Level) Option {
 		}
 		l.Logger.SetFormatter(formatter)
 		l.Logger.SetLevel(logrus.Level(level))
+		l.Logger.SetOutput(os.Stdout)
 		return nil
 	}
 }
