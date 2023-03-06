@@ -20,6 +20,7 @@ type Option func(l *Logger) error
 const calldepth = 3
 
 // WithDebugLevel sets the log level to debug with some preformatted output
+// (this option is kept for legacy reasons. Use WithLevel instead)
 func WithDebugLevel(debug bool) Option {
 	return func(l *Logger) error {
 		if debug {
@@ -49,20 +50,9 @@ func WithLevel(level Level) Option {
 			DisableLevelTruncation: false,
 		}
 		switch level {
-		case DebugLevel:
+		case DebugLevel, TraceLevel:
 			formatter.TimestampFormat = "02-01-2006 15:04:05"
 			formatter.FullTimestamp = true
-			formatter.CallerPrettyfier = func(f *runtime.Frame) (string, string) {
-				return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
-			}
-			l.Logger.SetReportCaller(true)
-		case TraceLevel:
-			formatter.TimestampFormat = "02-01-2006 15:04:05"
-			formatter.FullTimestamp = true
-			if pc, file, line, ok := runtime.Caller(calldepth); ok {
-				fName := runtime.FuncForPC(pc).Name()
-				l = l.WithField("file", file).WithField("line", line).WithField("func", fName)
-			}
 			formatter.CallerPrettyfier = func(f *runtime.Frame) (string, string) {
 				return fmt.Sprintf("%s - ", formatFilePath(f.Function)), fmt.Sprintf(" %s:%d -", formatFilePath(f.File), f.Line)
 			}
@@ -143,7 +133,7 @@ func WithNullLogger() Option {
 // WithRuntimeContext sets the logger to include runtime context
 func WithRuntimeContext() Option {
 	return func(l *Logger) error {
-		if pc, file, line, ok := runtime.Caller(1); ok {
+		if pc, file, line, ok := runtime.Caller(calldepth); ok {
 			fName := runtime.FuncForPC(pc).Name()
 			l = l.WithField("file", file).WithField("line", line).WithField("func", fName)
 			formatter := &logrus.TextFormatter{
